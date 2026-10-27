@@ -87,10 +87,6 @@
       display: none !important;
     }
 
-    @media (max-width: 600px) {
-      .table-wrap { overflow-x: auto; }
-    }
-    
     .card.evento-1 {
       background-color: #e8f5e9;
       border-color: #81c784;
@@ -105,7 +101,31 @@
       background-color: #ffebee;
       border-color: #e57373;
     }
-    
+
+    /* Estilos adaptativos para la cabecera de sesión y mobile */
+    .session-info {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .logout-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    @media (max-width: 600px) {
+      .table-wrap { overflow-x: auto; }
+      
+      .session-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+    }
   </style>
 </head>
 
@@ -131,15 +151,17 @@
 
   <!-- PANEL PRINCIPAL DE LA APLICACIÓN -->
   <section id="appPanel" hidden>
-    <p>
-      Sesión: <strong id="userEmail"></strong> 
-      &emsp; Perfil: <strong id="userRole"></strong>
-      &emsp; <button id="logoutButton" type="button">Cerrar sesión</button>
+    <div class="session-info">
+      <div>Sesión: <strong id="userEmail"></strong></div>
+      <div>Perfil: <strong id="userRole"></strong></div>
       
-      <span id="timerContainer" style="margin-left: 10px;" aria-live="off">
-        (Cierre de sesión automático en: <strong id="timerCountdown">--</strong>s)
-      </span>
-    </p>
+      <div class="logout-group">
+        <button id="logoutButton" type="button">Cerrar sesión</button>
+        <span id="timerContainer" aria-live="off">
+          (logout en: <strong id="timerCountdown">--</strong>s)
+        </span>
+      </div>
+    </div>
 
     <h2>Votos Acumulados</h2>
 
@@ -356,6 +378,7 @@
     }
 
     // --- GESTIÓN DE USUARIOS ---
+
     async function loadUsers() {
       usersBody.replaceChildren();
       const result = await invokeAdmin({ action: "list_users" });
@@ -371,7 +394,7 @@
 
         const resetButton = createButton("Cambiar contraseña", async () => {
           const newPassword = prompt(`Nueva contraseña para ${user.email} (mínimo 8 caracteres):`);
-          resetInactivityTimer(); // Reinicia el temporizador tras interactuar con el prompt
+          resetInactivityTimer();
           if (!newPassword) return;
 
           if (newPassword.length < 8) {
@@ -380,7 +403,7 @@
           }
 
           if (!confirm(`¿Cambiar la contraseña de ${user.email}?`)) return;
-          resetInactivityTimer(); // Reinicia el temporizador tras interactuar con el confirm
+          resetInactivityTimer();
 
           try {
             await invokeAdmin({ action: "reset_password", userId: user.id, newPassword });
@@ -392,7 +415,7 @@
 
         const deleteButton = createButton("Eliminar", async () => {
           const confirmed = confirm(`¿Eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`);
-          resetInactivityTimer(); // Reinicia el temporizador inmediatamente después de cerrar el confirm
+          resetInactivityTimer();
 
           if (!confirmed) return;
 
@@ -412,6 +435,7 @@
     }
 
     // --- MANEJO DE SESIÓN Y VISTAS ---
+
     async function performLogout() {
       stopInactivityTimer();
       const { error } = await db.auth.signOut();
