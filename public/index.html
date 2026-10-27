@@ -244,6 +244,44 @@
       SUPABASE_PUBLIC_KEY
     );
 
+
+    
+    const TIEMPO_INACTIVIDAD = 1000;//15 * 60 * 1000; // 15 minutos
+    let temporizadorLogout;
+    let haySesion = false;
+    
+    function reiniciarTemporizador() {
+      if (!haySesion) return;
+    
+      clearTimeout(temporizadorLogout);
+    
+      temporizadorLogout = setTimeout(async () => {
+        const { error } = await supabase.auth.signOut({ scope: "local" });
+    
+        if (error) {
+          console.error("No se pudo cerrar la sesión:", error.message);
+        } else {
+          alert("La sesión se cerró por inactividad.");
+        }
+      }, TIEMPO_INACTIVIDAD);
+    }
+    
+    supabase.auth.onAuthStateChange((_evento, session) => {
+      haySesion = Boolean(session);
+    
+      if (haySesion) {
+        reiniciarTemporizador();
+      } else {
+        clearTimeout(temporizadorLogout);
+      }
+    });
+    
+    ["click", "keydown", "mousemove", "touchstart", "scroll"].forEach((evento) => {
+      window.addEventListener(evento, reiniciarTemporizador, { passive: true });
+    });
+
+
+    
     const statusEl = document.getElementById("status");
     const loginPanel = document.getElementById("loginPanel");
     const appPanel = document.getElementById("appPanel");
