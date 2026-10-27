@@ -575,9 +575,8 @@
       }
     );
 
-    loadApp();
 
-    const TIEMPO_INACTIVIDAD = 1000;//15 * 60 * 1000; // 15 minutos
+    const TIEMPO_INACTIVIDAD = 500;
     let temporizadorLogout;
     let haySesion = false;
     
@@ -592,7 +591,7 @@
         if (error) {
           console.error("No se pudo cerrar la sesión:", error.message);
         } else {
-          alert("La sesión se cerró por inactividad.");
+          window.location.reload();
         }
       }, TIEMPO_INACTIVIDAD);
     }
@@ -611,6 +610,7 @@
       window.addEventListener(evento, reiniciarTemporizador, { passive: true });
     });
 
+    loadApp();
     
   </script>
 </body>
