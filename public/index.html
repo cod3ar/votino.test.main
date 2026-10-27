@@ -1,12 +1,345 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Consulta de eventos</title>
-  </head>
-  <body>
-    <h1>Consulta de eventos</h1>
-    <p>La página está en preparación.</p>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consulta de eventos</title>
+  <style>
+    body {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      font-family: system-ui, sans-serif;
+      color: #202124;
+      background: #f7f8fa;
+    }
+    h1, h2 { margin-bottom: .5rem; }
+    section, .card {
+      margin: 1rem 0;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      background: white;
+    }
+    label { display: block; margin: .75rem 0 .25rem; }
+    input {
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 420px;
+      padding: .65rem;
+      margin-bottom: .5rem;
+    }
+    button {
+      padding: .6rem .85rem;
+      margin: .25rem .25rem .25rem 0;
+      cursor: pointer;
+    }
+    #totals {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: .75rem;
+    }
+    .card { margin: 0; }
+    .count { font-size: 1.8rem; font-weight: 700; }
+    .muted { color: #555; }
+    .error { color: #a40000; }
+    .success { color: #176b31; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: .6rem;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    section[hidden] { display: none !important; }
+    @media (max-width: 600px) {
+      .table-wrap { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Consulta de eventos</h1>
+  <p id="status" class="muted" aria-live="polite"></p>
+
+  <section id="loginPanel">
+    <h2>Iniciar sesión</h2>
+    <form id="loginForm">
+      <label for="email">Correo electrónico</label>
+      <input id="email" type="email" autocomplete="username" required>
+
+      <label for="password">Contraseña</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+
+      <button type="submit">Entrar</button>
+    </form>
+  </section>
+
+  <section id="appPanel" hidden>
+    <p>
+      Sesión: <strong id="userEmail"></strong>
+      · Perfil: <strong id="userRole"></strong>
+      <button id="logoutButton" type="button">Cerrar sesión</button>
+    </p>
+
+    <h2>Totales de eventos</h2>
+    <div id="totals">
+      <div class="card">Evento 1<div class="count" id="total1">—</div></div>
+      <div class="card">Evento 2<div class="count" id="total2">—</div></div>
+      <div class="card">Evento 3<div class="count" id="total3">—</div></div>
+    </div>
+    <button id="refreshButton" type="button">Actualizar totales</button>
+    <pre id="totalsDetails" class="muted"></pre>
+
+    <section id="adminPanel" hidden>
+      <h2>Administración de usuarios</h2>
+      <button id="refreshUsersButton" type="button">Actualizar lista</button>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Correo</th><th>Perfil</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // Reemplaza estos dos valores con los datos de TU proyecto.
+    const SUPABASE_URL = "https://gzfnujotyphpjyowduyy.supabase.co";
+    const SUPABASE_PUBLIC_KEY = "sb_publishable_PNKmjPJ_Pf7q8W0322nocg_z4KtPcjQ";
+
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY);
+
+    const statusEl = document.getElementById("status");
+    const loginPanel = document.getElementById("loginPanel");
+    const appPanel = document.getElementById("appPanel");
+    const adminPanel = document.getElementById("adminPanel");
+    const usersBody = document.getElementById("usersBody");
+
+    function showStatus(message, kind = "muted") {
+      statusEl.textContent = message;
+      statusEl.className = kind;
+    }
+
+    async function invokeAdmin(body) {
+      const { data, error } = await db.functions.invoke("admin-users", { body });
+
+      if (error) {
+        let message = error.message;
+        try {
+          const details = await error.context.json();
+          message = details.error || message;
+        } catch {}
+        throw new Error(message);
+      }
+
+      if (data?.error) throw new Error(data.error);
+      return data;
+    }
+
+    function displayTotals(result) {
+      const totals = { 1: null, 2: null, 3: null };
+      let recognized = false;
+      const rows = Array.isArray(result) ? result : [result];
+
+      for (const row of rows) {
+        if (!row || typeof row !== "object") continue;
+        const keys = Object.keys(row);
+        const eventKey = keys.find(key =>
+          /^(evento|event|event_id|tipo)$/i.test(key)
+        );
+        const countKey = keys.find(key =>
+          /^(total|cantidad|count|conteo)$/i.test(key)
+        );
+
+        if (eventKey && countKey) {
+          const eventNumber = Number(row[eventKey]);
+          const count = Number(row[countKey]);
+          if ([1, 2, 3].includes(eventNumber) && Number.isFinite(count)) {
+            totals[eventNumber] = count;
+            recognized = true;
+          }
+        }
+
+        for (const n of [1, 2, 3]) {
+          const key = keys.find(name =>
+            new RegExp(
+              `^(total|cantidad|count|conteo|evento|event)_?${n}$|^${n}_?(total|cantidad|count|conteo|evento|event)$`,
+              "i"
+            ).test(name)
+          );
+          if (key && Number.isFinite(Number(row[key]))) {
+            totals[n] = Number(row[key]);
+            recognized = true;
+          }
+        }
+      }
+
+      for (const n of [1, 2, 3]) {
+        document.getElementById(`total${n}`).textContent =
+          totals[n] === null ? "—" : String(totals[n]);
+      }
+
+      document.getElementById("totalsDetails").textContent = recognized
+        ? ""
+        : "No reconocí el formato de respuesta de total_eventos(). Respuesta: " +
+          JSON.stringify(result);
+    }
+
+    async function loadTotals() {
+      const { data, error } = await db.rpc("total_eventos");
+      if (error) throw error;
+      displayTotals(data);
+    }
+
+    async function loadUsers() {
+      usersBody.replaceChildren();
+      const result = await invokeAdmin({ action: "list_users" });
+
+      for (const user of result.users || []) {
+        const row = document.createElement("tr");
+        const emailCell = document.createElement("td");
+        const profileCell = document.createElement("td");
+        const actionsCell = document.createElement("td");
+
+        emailCell.textContent = user.email || "(sin correo)";
+        profileCell.textContent = user.perfil || "sin perfil";
+
+        const resetButton = document.createElement("button");
+        resetButton.type = "button";
+        resetButton.textContent = "Cambiar contraseña";
+        resetButton.addEventListener("click", async () => {
+          const newPassword = prompt(
+            `Nueva contraseña para ${user.email} (mínimo 8 caracteres):`
+          );
+          if (newPassword === null) return;
+          if (newPassword.length < 8) {
+            showStatus("La contraseña debe tener al menos 8 caracteres.", "error");
+            return;
+          }
+          if (!confirm(`¿Cambiar la contraseña de ${user.email}?`)) return;
+
+          try {
+            await invokeAdmin({
+              action: "reset_password",
+              userId: user.id,
+              newPassword
+            });
+            showStatus("Contraseña actualizada.", "success");
+          } catch (error) {
+            showStatus(error.message, "error");
+          }
+        });
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.textContent = "Eliminar";
+        deleteButton.disabled = user.id === currentUserId;
+        deleteButton.addEventListener("click", async () => {
+          if (!confirm(`¿Eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`)) return;
+
+          try {
+            await invokeAdmin({ action: "delete_user", userId: user.id });
+            showStatus("Usuario eliminado.", "success");
+            await loadUsers();
+          } catch (error) {
+            showStatus(error.message, "error");
+          }
+        });
+
+        actionsCell.append(resetButton, deleteButton);
+        row.append(emailCell, profileCell, actionsCell);
+        usersBody.append(row);
+      }
+    }
+
+    let currentUserId = null;
+
+    async function loadApp() {
+      showStatus("");
+      const { data: { session } } = await db.auth.getSession();
+
+      if (!session) {
+        currentUserId = null;
+        loginPanel.hidden = false;
+        appPanel.hidden = true;
+        return;
+      }
+
+      currentUserId = session.user.id;
+      loginPanel.hidden = true;
+      appPanel.hidden = false;
+      document.getElementById("userEmail").textContent =
+        session.user.email || "(sin correo)";
+
+      const { data: profile, error } = await db
+        .from("perfiles")
+        .select("perfil")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        showStatus("No se pudo leer tu perfil: " + error.message, "error");
+        return;
+      }
+
+      const role = profile?.perfil || "sin perfil";
+      document.getElementById("userRole").textContent = role;
+      adminPanel.hidden = role !== "admin";
+
+      try {
+        await loadTotals();
+        if (role === "admin") await loadUsers();
+        showStatus("Sesión iniciada.", "success");
+      } catch (error) {
+        showStatus(error.message || "Ocurrió un error al cargar los datos.", "error");
+      }
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      showStatus("Iniciando sesión…");
+
+      const { error } = await db.auth.signInWithPassword({
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value
+      });
+
+      if (error) {
+        showStatus("No se pudo iniciar sesión: " + error.message, "error");
+        return;
+      }
+
+      document.getElementById("password").value = "";
+      await loadApp();
+    });
+
+    document.getElementById("logoutButton").addEventListener("click", async () => {
+      const { error } = await db.auth.signOut();
+      if (error) showStatus(error.message, "error");
+      await loadApp();
+    });
+
+    document.getElementById("refreshButton").addEventListener("click", async () => {
+      try {
+        await loadTotals();
+        showStatus("Totales actualizados.", "success");
+      } catch (error) {
+        showStatus(error.message, "error");
+      }
+    });
+
+    document.getElementById("refreshUsersButton").addEventListener("click", async () => {
+      try {
+        await loadUsers();
+        showStatus("Lista de usuarios actualizada.", "success");
+      } catch (error) {
+        showStatus(error.message, "error");
+      }
+    });
+
+    loadApp();
+  </script>
+</body>
 </html>
