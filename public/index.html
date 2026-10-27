@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Consulta de Votos</title>
+  <title>Consulta de eventos</title>
+
   <style>
     body {
       max-width: 900px;
@@ -13,7 +14,9 @@
       color: #202124;
       background: #f7f8fa;
     }
+
     h1, h2 { margin-bottom: .5rem; }
+
     section, .card {
       margin: 1rem 0;
       padding: 1rem;
@@ -21,53 +24,98 @@
       border-radius: 10px;
       background: white;
     }
-    label { display: block; margin: .75rem 0 .25rem; }
-    input {
+
+    label {
+      display: block;
+      margin: .75rem 0 .25rem;
+    }
+
+    input, select {
       box-sizing: border-box;
       width: 100%;
       max-width: 420px;
       padding: .65rem;
       margin-bottom: .5rem;
     }
+
     button {
       padding: .6rem .85rem;
       margin: .25rem .25rem .25rem 0;
       cursor: pointer;
     }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .6;
+    }
+
+    .admin-actions {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
     #totals {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: .75rem;
     }
+
     .card { margin: 0; }
-    .count { font-size: 1.8rem; font-weight: 700; }
+
+    .count {
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
     .muted { color: #555; }
     .error { color: #a40000; }
     .success { color: #176b31; }
-    table { width: 100%; border-collapse: collapse; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
     th, td {
       padding: .6rem;
       border-bottom: 1px solid #ddd;
       text-align: left;
     }
-    section[hidden] { display: none !important; }
+
+    [hidden] {
+      display: none !important;
+    }
+
     @media (max-width: 600px) {
       .table-wrap { overflow-x: auto; }
     }
   </style>
 </head>
+
 <body>
-  <h1>Consulta de Votos</h1>
+  <h1>Consulta de eventos</h1>
   <p id="status" class="muted" aria-live="polite"></p>
 
   <section id="loginPanel">
     <h2>Iniciar sesión</h2>
+
     <form id="loginForm">
       <label for="email">Correo electrónico</label>
-      <input id="email" type="email" autocomplete="username" required>
+      <input
+        id="email"
+        type="email"
+        autocomplete="username"
+        required
+      >
 
       <label for="password">Contraseña</label>
-      <input id="password" type="password" autocomplete="current-password" required>
+      <input
+        id="password"
+        type="password"
+        autocomplete="current-password"
+        required
+      >
 
       <button type="submit">Entrar</button>
     </form>
@@ -81,41 +129,84 @@
     </p>
 
     <h2>Totales de eventos</h2>
+
     <div id="totals">
-      <div class="card">Evento 1<div class="count" id="total1">—</div></div>
-      <div class="card">Evento 2<div class="count" id="total2">—</div></div>
-      <div class="card">Evento 3<div class="count" id="total3">—</div></div>
+      <div class="card">
+        Evento 1
+        <div class="count" id="total1">—</div>
+      </div>
+
+      <div class="card">
+        Evento 2
+        <div class="count" id="total2">—</div>
+      </div>
+
+      <div class="card">
+        Evento 3
+        <div class="count" id="total3">—</div>
+      </div>
     </div>
+
     <button id="refreshButton" type="button">Actualizar totales</button>
     <pre id="totalsDetails" class="muted"></pre>
 
     <section id="adminPanel" hidden>
       <h2>Administración de usuarios</h2>
-      <button id="refreshUsersButton" type="button">Actualizar lista</button>
 
-      
-        <h3>Crear usuario</h3>
-        <form id="createUserForm">
-          <label for="newUserEmail">Correo electrónico</label>
-          <input id="newUserEmail" type="email" required>
-        
-          <label for="newUserPassword">Contraseña inicial (mínimo 8 caracteres)</label>
-          <input id="newUserPassword" type="password" minlength="8" required>
-        
-          <label for="newUserProfile">Perfil</label>
-          <select id="newUserProfile">
-            <option value="consulta">Consulta</option>
-            <option value="admin">Administrador</option>
-          </select>
-        
-          <button type="submit">Crear usuario</button>
-        </form>
+      <div class="admin-actions">
+        <button id="refreshUsersButton" type="button">
+          Actualizar lista
+        </button>
 
-      
+        <button
+          id="toggleCreateUserButton"
+          type="button"
+          aria-expanded="false"
+          aria-controls="createUserForm"
+        >
+          Crear Usuario
+        </button>
+      </div>
+
+      <form id="createUserForm" hidden>
+        <h3>Nuevo usuario</h3>
+
+        <label for="newUserEmail">Correo electrónico</label>
+        <input
+          id="newUserEmail"
+          type="email"
+          autocomplete="email"
+          required
+        >
+
+        <label for="newUserPassword">
+          Contraseña inicial (mínimo 8 caracteres)
+        </label>
+        <input
+          id="newUserPassword"
+          type="password"
+          autocomplete="new-password"
+          minlength="8"
+          required
+        >
+
+        <label for="newUserProfile">Perfil</label>
+        <select id="newUserProfile">
+          <option value="consulta">Consulta</option>
+          <option value="admin">Administrador</option>
+        </select>
+
+        <button type="submit">Guardar usuario</button>
+      </form>
+
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Correo</th><th>Perfil</th><th>Acciones</th></tr>
+            <tr>
+              <th>Correo</th>
+              <th>Perfil</th>
+              <th>Acciones</th>
+            </tr>
           </thead>
           <tbody id="usersBody"></tbody>
         </table>
@@ -123,21 +214,28 @@
     </section>
   </section>
 
-
-  
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <script>
-    // Reemplaza estos dos valores con los datos de TU proyecto.
+
     const SUPABASE_URL = "https://gzfnujotyphpjyowduyy.supabase.co";
     const SUPABASE_PUBLIC_KEY = "sb_publishable_PNKmjPJ_Pf7q8W0322nocg_z4KtPcjQ";
 
-    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY);
+    const db = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_PUBLIC_KEY
+    );
 
     const statusEl = document.getElementById("status");
     const loginPanel = document.getElementById("loginPanel");
     const appPanel = document.getElementById("appPanel");
     const adminPanel = document.getElementById("adminPanel");
     const usersBody = document.getElementById("usersBody");
+    const createUserForm = document.getElementById("createUserForm");
+    const toggleCreateUserButton =
+      document.getElementById("toggleCreateUserButton");
+
+    let currentUserId = null;
 
     function showStatus(message, kind = "muted") {
       statusEl.textContent = message;
@@ -145,18 +243,25 @@
     }
 
     async function invokeAdmin(body) {
-      const { data, error } = await db.functions.invoke("admin-users", { body });
+      const { data, error } = await db.functions.invoke("admin-users", {
+        body
+      });
 
       if (error) {
         let message = error.message;
+
         try {
           const details = await error.context.json();
           message = details.error || message;
         } catch {}
+
         throw new Error(message);
       }
 
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       return data;
     }
 
@@ -167,6 +272,7 @@
 
       for (const row of rows) {
         if (!row || typeof row !== "object") continue;
+
         const keys = Object.keys(row);
         const eventKey = keys.find(key =>
           /^(evento|event|event_id|tipo)$/i.test(key)
@@ -178,6 +284,7 @@
         if (eventKey && countKey) {
           const eventNumber = Number(row[eventKey]);
           const count = Number(row[countKey]);
+
           if ([1, 2, 3].includes(eventNumber) && Number.isFinite(count)) {
             totals[eventNumber] = count;
             recognized = true;
@@ -191,6 +298,7 @@
               "i"
             ).test(name)
           );
+
           if (key && Number.isFinite(Number(row[key]))) {
             totals[n] = Number(row[key]);
             recognized = true;
@@ -211,12 +319,15 @@
 
     async function loadTotals() {
       const { data, error } = await db.rpc("total_eventos");
+
       if (error) throw error;
+
       displayTotals(data);
     }
 
     async function loadUsers() {
       usersBody.replaceChildren();
+
       const result = await invokeAdmin({ action: "list_users" });
 
       for (const user of result.users || []) {
@@ -231,15 +342,22 @@
         const resetButton = document.createElement("button");
         resetButton.type = "button";
         resetButton.textContent = "Cambiar contraseña";
+
         resetButton.addEventListener("click", async () => {
           const newPassword = prompt(
             `Nueva contraseña para ${user.email} (mínimo 8 caracteres):`
           );
+
           if (newPassword === null) return;
+
           if (newPassword.length < 8) {
-            showStatus("La contraseña debe tener al menos 8 caracteres.", "error");
+            showStatus(
+              "La contraseña debe tener al menos 8 caracteres.",
+              "error"
+            );
             return;
           }
+
           if (!confirm(`¿Cambiar la contraseña de ${user.email}?`)) return;
 
           try {
@@ -248,6 +366,7 @@
               userId: user.id,
               newPassword
             });
+
             showStatus("Contraseña actualizada.", "success");
           } catch (error) {
             showStatus(error.message, "error");
@@ -258,11 +377,20 @@
         deleteButton.type = "button";
         deleteButton.textContent = "Eliminar";
         deleteButton.disabled = user.id === currentUserId;
+
         deleteButton.addEventListener("click", async () => {
-          if (!confirm(`¿Eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`)) return;
+          const confirmed = confirm(
+            `¿Eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`
+          );
+
+          if (!confirmed) return;
 
           try {
-            await invokeAdmin({ action: "delete_user", userId: user.id });
+            await invokeAdmin({
+              action: "delete_user",
+              userId: user.id
+            });
+
             showStatus("Usuario eliminado.", "success");
             await loadUsers();
           } catch (error) {
@@ -276,13 +404,55 @@
       }
     }
 
-    let currentUserId = null;
+    toggleCreateUserButton.addEventListener("click", () => {
+      const opening = createUserForm.hidden;
 
+      createUserForm.hidden = !opening;
+      toggleCreateUserButton.textContent =
+        opening ? "Cancelar" : "Crear Usuario";
+      toggleCreateUserButton.setAttribute(
+        "aria-expanded",
+        String(opening)
+      );
 
-    
+      if (opening) {
+        document.getElementById("newUserEmail").focus();
+      }
+    });
+
+    createUserForm.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const email = document.getElementById("newUserEmail").value.trim();
+      const password = document.getElementById("newUserPassword").value;
+      const perfil = document.getElementById("newUserProfile").value;
+
+      try {
+        await invokeAdmin({
+          action: "create_user",
+          email,
+          password,
+          perfil
+        });
+
+        createUserForm.reset();
+        createUserForm.hidden = true;
+        toggleCreateUserButton.textContent = "Crear Usuario";
+        toggleCreateUserButton.setAttribute("aria-expanded", "false");
+
+        showStatus("Usuario creado.", "success");
+        await loadUsers();
+      } catch (error) {
+        showStatus(error.message, "error");
+      }
+    });
+
     async function loadApp() {
       showStatus("");
-      const { data: { session } } = await db.auth.getSession();
+
+      const {
+        data: { session }
+      } = await db.auth.getSession();
 
       if (!session) {
         currentUserId = null;
@@ -294,6 +464,7 @@
       currentUserId = session.user.id;
       loginPanel.hidden = true;
       appPanel.hidden = false;
+
       document.getElementById("userEmail").textContent =
         session.user.email || "(sin correo)";
 
@@ -314,86 +485,78 @@
 
       try {
         await loadTotals();
-        if (role === "admin") await loadUsers();
+
+        if (role === "admin") {
+          await loadUsers();
+        }
+
         showStatus("Sesión iniciada.", "success");
       } catch (error) {
-        showStatus(error.message || "Ocurrió un error al cargar los datos.", "error");
+        showStatus(
+          error.message || "Ocurrió un error al cargar los datos.",
+          "error"
+        );
       }
     }
 
+    document.getElementById("loginForm").addEventListener(
+      "submit",
+      async event => {
+        event.preventDefault();
+        showStatus("Iniciando sesión…");
 
-    
-    document.getElementById("loginForm").addEventListener("submit", async event => {
-      event.preventDefault();
-      showStatus("Iniciando sesión…");
-
-      const { error } = await db.auth.signInWithPassword({
-        email: document.getElementById("email").value,
-        password: document.getElementById("password").value
-      });
-
-      if (error) {
-        showStatus("No se pudo iniciar sesión: " + error.message, "error");
-        return;
-      }
-
-      document.getElementById("password").value = "";
-      await loadApp();
-    });
-
-
-    
-    document.getElementById("logoutButton").addEventListener("click", async () => {
-      const { error } = await db.auth.signOut();
-      if (error) showStatus(error.message, "error");
-      await loadApp();
-    });
-
-    document.getElementById("refreshButton").addEventListener("click", async () => {
-      try {
-        await loadTotals();
-        showStatus("Totales actualizados.", "success");
-      } catch (error) {
-        showStatus(error.message, "error");
-      }
-    });
-
-    document.getElementById("refreshUsersButton").addEventListener("click", async () => {
-      try {
-        await loadUsers();
-        showStatus("Lista de usuarios actualizada.", "success");
-      } catch (error) {
-        showStatus(error.message, "error");
-      }
-    });
-
-
-
-    document.getElementById("createUserForm").addEventListener("submit", async (event) => {
-      event.preventDefault();
-    
-      const email = document.getElementById("newUserEmail").value.trim();
-      const password = document.getElementById("newUserPassword").value;
-      const perfil = document.getElementById("newUserProfile").value;
-    
-      try {
-        await invokeAdmin({
-          action: "create_user",
-          email,
-          password,
-          perfil
+        const { error } = await db.auth.signInWithPassword({
+          email: document.getElementById("email").value,
+          password: document.getElementById("password").value
         });
-    
-        document.getElementById("createUserForm").reset();
-        showStatus("Usuario creado.", "success");
-        await loadUsers();
-      } catch (error) {
-        showStatus(error.message, "error");
+
+        if (error) {
+          showStatus("No se pudo iniciar sesión: " + error.message, "error");
+          return;
+        }
+
+        document.getElementById("password").value = "";
+        await loadApp();
       }
-    });
+    );
 
+    document.getElementById("logoutButton").addEventListener(
+      "click",
+      async () => {
+        const { error } = await db.auth.signOut();
 
-    
+        if (error) {
+          showStatus(error.message, "error");
+        }
+
+        await loadApp();
+      }
+    );
+
+    document.getElementById("refreshButton").addEventListener(
+      "click",
+      async () => {
+        try {
+          await loadTotals();
+          showStatus("Totales actualizados.", "success");
+        } catch (error) {
+          showStatus(error.message, "error");
+        }
+      }
+    );
+
+    document.getElementById("refreshUsersButton").addEventListener(
+      "click",
+      async () => {
+        try {
+          await loadUsers();
+          showStatus("Lista de usuarios actualizada.", "success");
+        } catch (error) {
+          showStatus(error.message, "error");
+        }
+      }
+    );
+
     loadApp();
   </script>
 </body>
