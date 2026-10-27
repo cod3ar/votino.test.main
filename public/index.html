@@ -356,7 +356,6 @@
     }
 
     // --- GESTIÓN DE USUARIOS ---
-
     async function loadUsers() {
       usersBody.replaceChildren();
       const result = await invokeAdmin({ action: "list_users" });
@@ -372,6 +371,7 @@
 
         const resetButton = createButton("Cambiar contraseña", async () => {
           const newPassword = prompt(`Nueva contraseña para ${user.email} (mínimo 8 caracteres):`);
+          resetInactivityTimer(); // Reinicia el temporizador tras interactuar con el prompt
           if (!newPassword) return;
 
           if (newPassword.length < 8) {
@@ -380,6 +380,7 @@
           }
 
           if (!confirm(`¿Cambiar la contraseña de ${user.email}?`)) return;
+          resetInactivityTimer(); // Reinicia el temporizador tras interactuar con el confirm
 
           try {
             await invokeAdmin({ action: "reset_password", userId: user.id, newPassword });
@@ -390,7 +391,10 @@
         });
 
         const deleteButton = createButton("Eliminar", async () => {
-          if (!confirm(`¿Eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`)) return;
+          const confirmed = confirm(`¿Eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`);
+          resetInactivityTimer(); // Reinicia el temporizador inmediatamente después de cerrar el confirm
+
+          if (!confirmed) return;
 
           try {
             await invokeAdmin({ action: "delete_user", userId: user.id });
@@ -408,7 +412,6 @@
     }
 
     // --- MANEJO DE SESIÓN Y VISTAS ---
-
     async function performLogout() {
       stopInactivityTimer();
       const { error } = await db.auth.signOut();
