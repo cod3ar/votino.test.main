@@ -273,7 +273,7 @@
 
     // Configuración de temporizadores
     const INACTIVITY_TIMEOUT_SECONDS = 60;
-    const AUTO_REFRESH_SECONDS = 5;
+    const AUTO_REFRESH_SECONDS = 30;
 
     let countdownInterval = null;
     let refreshInterval = null;
@@ -334,7 +334,7 @@
           try {
             await loadTotals();
           } catch (err) {
-            // Silencia errores en segundo plano para no interrumpir al usuario
+            // Silencia errores en segundo plano
           }
         }
       }, 1000);
@@ -371,10 +371,19 @@
       statusEl.className = kind;
     }
 
+    // Formato personalizado: dd/mm/aaaa HH:mm
     function formatDate(isoString) {
       if (!isoString) return "Nunca";
       const d = new Date(isoString);
-      return isNaN(d.getTime()) ? "—" : d.toLocaleString();
+      if (isNaN(d.getTime())) return "—";
+
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
     }
 
     function createButton(text, onClick, disabled = false) {
