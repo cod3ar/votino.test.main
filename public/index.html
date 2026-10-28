@@ -273,7 +273,7 @@
 
     // Configuración de temporizadores
     const INACTIVITY_TIMEOUT_SECONDS = 60;
-    const AUTO_REFRESH_SECONDS = 10;
+    const AUTO_REFRESH_SECONDS = 5;
 
     let countdownInterval = null;
     let refreshInterval = null;
@@ -462,12 +462,12 @@
 
       const { data: lastEvent } = await db
         .from("eventos")
-        .select("created_at")
-        .order("created_at", { ascending: false })
+        .select("timestamp")
+        .order("timestamp", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      lastVoteTimeEl.textContent = formatDate(lastEvent?.created_at);
+      lastVoteTimeEl.textContent = formatDate(lastEvent?.timestamp);
     }
 
     // --- GESTIÓN DE USUARIOS ---
