@@ -117,6 +117,19 @@
       gap: 0.5rem;
     }
 
+    .refresh-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.25rem;
+    }
+
+    .last-vote-info {
+      margin-top: .75rem;
+      font-size: 0.9rem;
+    }
+
     @media (max-width: 600px) {
       .table-wrap { overflow-x: auto; }
       
@@ -182,8 +195,15 @@
       </div>
     </div>
 
+    <p class="last-vote-info muted">Último voto registrado: <strong id="lastVoteTime">—</strong></p>
+
     <p></p>
-    <button id="refreshButton" type="button">Actualizar totales</button>
+    <div class="refresh-group">
+      <button id="refreshButton" type="button">Actualizar totales</button>
+      <span class="muted" aria-live="off">
+        (próxima actualización en: <strong id="refreshCountdown">--</strong>s)
+      </span>
+    </div>
     <pre id="totalsDetails" class="muted"></pre>
 
     <!-- SECCIÓN ADMINISTRATIVA -->
@@ -221,6 +241,7 @@
             <tr>
               <th>Correo</th>
               <th>Perfil</th>
+              <th>Último ingreso</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -247,14 +268,21 @@
     const createUserForm = document.getElementById("createUserForm");
     const toggleCreateUserButton = document.getElementById("toggleCreateUserButton");
     const timerCountdown = document.getElementById("timerCountdown");
+    const refreshCountdown = document.getElementById("refreshCountdown");
+    const lastVoteTimeEl = document.getElementById("lastVoteTime");
 
-    // Configuración del temporizador
+    // Configuración de temporizadores
     const INACTIVITY_TIMEOUT_SECONDS = 60;
+    const AUTO_REFRESH_SECONDS = 5;
+
     let countdownInterval = null;
+    let refreshInterval = null;
+
     let remainingSeconds = INACTIVITY_TIMEOUT_SECONDS;
+    let remainingRefreshSeconds = AUTO_REFRESH_SECONDS;
     let currentUserId = null;
 
-    // --- TEMPORIZADOR DE INACTIVIDAD ---
+    // --- TEMPORIZADOR DE INACTIVIDAD (LOGOUT) ---
 
     function startInactivityTimer() {
       stopInactivityTimer();
@@ -290,9 +318,50 @@
       if (timerCountdown) timerCountdown.textContent = remainingSeconds;
     }
 
-    // Reinicio global al pulsar cualquier botón
+    // --- TEMPORIZADOR DE AUTO-REFRESH DE VOTOS ---
+
+    function startAutoRefreshTimer() {
+      stopAutoRefreshTimer();
+      remainingRefreshSeconds = AUTO_REFRESH_SECONDS;
+      updateRefreshDisplay();
+
+      refreshInterval = setInterval(async () => {
+        remainingRefreshSeconds -= 1;
+        updateRefreshDisplay();
+
+        if (remainingRefreshSeconds <= 0) {
+          remainingRefreshSeconds = AUTO_REFRESH_SECONDS;
+          try {
+            await loadTotals();
+          } catch (err) {
+            // Silencia errores en segundo plano para no interrumpir al usuario
+          }
+        }
+      }, 1000);
+    }
+
+    function stopAutoRefreshTimer() {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+    }
+
+    function resetAutoRefreshTimer() {
+      remainingRefreshSeconds = AUTO_REFRESH_SECONDS;
+      updateRefreshDisplay();
+    }
+
+    function updateRefreshDisplay() {
+      if (refreshCountdown) refreshCountdown.textContent = remainingRefreshSeconds;
+    }
+
+    // Reinicio global de ambos temporizadores al pulsar cualquier botón
     document.addEventListener("click", (e) => {
-      if (e.target.closest("button")) resetInactivityTimer();
+      if (e.target.closest("button")) {
+        resetInactivityTimer();
+        resetAutoRefreshTimer();
+      }
     });
 
     // --- FUNCIONES AUXILIARES ---
@@ -300,6 +369,12 @@
     function showStatus(message, kind = "muted") {
       statusEl.textContent = message;
       statusEl.className = kind;
+    }
+
+    function formatDate(isoString) {
+      if (!isoString) return "Nunca";
+      const d = new Date(isoString);
+      return isNaN(d.getTime()) ? "—" : d.toLocaleString();
     }
 
     function createButton(text, onClick, disabled = false) {
@@ -327,7 +402,7 @@
       return data;
     }
 
-    // --- PROCESAMIENTO Y DATO DE VOTOS ---
+    // --- PROCESAMIENTO Y DATOS DE VOTOS ---
 
     function displayTotals(result) {
       const totals = { 1: null, 2: null, 3: null };
@@ -375,6 +450,15 @@
       const { data, error } = await db.rpc("total_eventos");
       if (error) throw error;
       displayTotals(data);
+
+      const { data: lastEvent } = await db
+        .from("eventos")
+        .select("created_at")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      lastVoteTimeEl.textContent = formatDate(lastEvent?.created_at);
     }
 
     // --- GESTIÓN DE USUARIOS ---
@@ -387,14 +471,17 @@
         const row = document.createElement("tr");
         const emailCell = document.createElement("td");
         const profileCell = document.createElement("td");
+        const lastLoginCell = document.createElement("td");
         const actionsCell = document.createElement("td");
 
         emailCell.textContent = user.email || "(sin correo)";
         profileCell.textContent = user.perfil || "sin perfil";
+        lastLoginCell.textContent = formatDate(user.last_sign_in_at);
 
         const resetButton = createButton("Cambiar contraseña", async () => {
           const newPassword = prompt(`Nueva contraseña para ${user.email} (mínimo 8 caracteres):`);
           resetInactivityTimer();
+          resetAutoRefreshTimer();
           if (!newPassword) return;
 
           if (newPassword.length < 8) {
@@ -404,6 +491,7 @@
 
           if (!confirm(`¿Cambiar la contraseña de ${user.email}?`)) return;
           resetInactivityTimer();
+          resetAutoRefreshTimer();
 
           try {
             await invokeAdmin({ action: "reset_password", userId: user.id, newPassword });
@@ -416,6 +504,7 @@
         const deleteButton = createButton("Eliminar", async () => {
           const confirmed = confirm(`¿Eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`);
           resetInactivityTimer();
+          resetAutoRefreshTimer();
 
           if (!confirmed) return;
 
@@ -429,7 +518,7 @@
         }, user.id === currentUserId);
 
         actionsCell.append(resetButton, deleteButton);
-        row.append(emailCell, profileCell, actionsCell);
+        row.append(emailCell, profileCell, lastLoginCell, actionsCell);
         usersBody.append(row);
       }
     }
@@ -438,6 +527,7 @@
 
     async function performLogout() {
       stopInactivityTimer();
+      stopAutoRefreshTimer();
       const { error } = await db.auth.signOut();
       if (error) showStatus(error.message, "error");
       await loadApp();
@@ -449,6 +539,7 @@
 
       if (!session) {
         stopInactivityTimer();
+        stopAutoRefreshTimer();
         currentUserId = null;
         loginPanel.hidden = false;
         appPanel.hidden = true;
@@ -460,6 +551,8 @@
       appPanel.hidden = false;
 
       startInactivityTimer();
+      startAutoRefreshTimer();
+
       document.getElementById("userEmail").textContent = session.user.email || "(sin correo)";
 
       const { data: profile, error } = await db
@@ -538,6 +631,7 @@
     document.getElementById("refreshButton").addEventListener("click", async () => {
       try {
         await loadTotals();
+        resetAutoRefreshTimer();
         showStatus("Totales actualizados.", "success");
       } catch (err) {
         showStatus(err.message, "error");
