@@ -293,7 +293,7 @@
 
     // Configuración de temporizadores (ajustables)
     const INACTIVITY_TIMEOUT_SECONDS = 60;
-    const AUTO_REFRESH_SECONDS = 5;
+    const AUTO_REFRESH_SECONDS = 15;
 
     let countdownInterval = null;
     let refreshInterval = null;
@@ -497,4 +497,210 @@
       const result = await invokeAdmin({ action: "list_users" });
 
       for (const user of result.users || []) {
-        const row = document
+        const row = document.createElement("tr");
+        const emailCell = document.createElement("td");
+        const profileCell = document.createElement("td");
+        const lastLoginCell = document.createElement("td");
+        const actionsCell = document.createElement("td");
+
+        emailCell.textContent = user.email || "(sin correo)";
+        profileCell.textContent = user.perfil || "sin perfil";
+        lastLoginCell.textContent = formatDate(user.last_sign_in_at);
+
+        const resetButton = createButton("Cambiar contraseña", async () => {
+          const newPassword = prompt(`Nueva contraseña para ${user.email} (mínimo 8 caracteres):`);
+          resetInactivityTimer();
+          resetAutoRefreshTimer();
+          if (!newPassword) return;
+
+          if (newPassword.length < 8) {
+            showStatus("La contraseña debe tener al menos 8 caracteres.", "error");
+            return;
+          }
+
+          if (!confirm(`¿Cambiar la contraseña de ${user.email}?`)) return;
+          resetInactivityTimer();
+          resetAutoRefreshTimer();
+
+          try {
+            await invokeAdmin({ action: "reset_password", userId: user.id, newPassword });
+            showStatus("Contraseña actualizada.", "success");
+          } catch (err) {
+            showStatus(err.message, "error");
+          }
+        });
+
+        const deleteButton = createButton("Eliminar", async () => {
+          const confirmed = confirm(`¿Eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`);
+          resetInactivityTimer();
+          resetAutoRefreshTimer();
+
+          if (!confirmed) return;
+
+          try {
+            await invokeAdmin({ action: "delete_user", userId: user.id });
+            showStatus("Usuario eliminado.", "success");
+            await loadUsers();
+          } catch (err) {
+            showStatus(err.message, "error");
+          }
+        }, user.id === currentUserId);
+
+        actionsCell.append(resetButton, deleteButton);
+        row.append(emailCell, profileCell, lastLoginCell, actionsCell);
+        usersBody.append(row);
+      }
+    }
+
+    // --- MANEJO DE SESIÓN Y VISTAS ---
+
+    async function performLogout() {
+      stopInactivityTimer();
+      stopAutoRefreshTimer();
+      const { error } = await db.auth.signOut();
+      if (error) showStatus(error.message, "error");
+      await loadApp();
+    }
+
+    async function loadApp() {
+      showStatus("");
+      const { data: { session } } = await db.auth.getSession();
+
+      if (!session) {
+        stopInactivityTimer();
+        stopAutoRefreshTimer();
+        currentUserId = null;
+        loginPanel.hidden = false;
+        appPanel.hidden = true;
+        return;
+      }
+
+      currentUserId = session.user.id;
+      loginPanel.hidden = true;
+      appPanel.hidden = false;
+
+      startInactivityTimer();
+      startAutoRefreshTimer();
+
+      document.getElementById("userEmail").textContent = session.user.email || "(sin correo)";
+
+      const { data: profile, error } = await db
+        .from("perfiles")
+        .select("perfil")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        showStatus("No se pudo leer tu perfil: " + error.message, "error");
+        return;
+      }
+
+      const role = profile?.perfil || "sin perfil";
+      document.getElementById("userRole").textContent = role;
+      
+      const isAdmin = role === "admin";
+      adminPanel.hidden = !isAdmin;
+      deleteAllEventsButton.hidden = !isAdmin; // Oculta o muestra el botón de borrado masivo según permisos
+
+      try {
+        await loadTotals();
+        if (isAdmin) await loadUsers();
+        showStatus("Sesión iniciada.", "success");
+      } catch (err) {
+        showStatus(err.message || "Ocurrió un error al cargar los datos.", "error");
+      }
+    }
+
+    // --- EVENT LISTENERS ---
+
+    toggleCreateUserButton.addEventListener("click", () => {
+      const opening = createUserForm.hidden;
+      createUserForm.hidden = !opening;
+      toggleCreateUserButton.textContent = opening ? "Cancelar" : "Crear Usuario";
+      toggleCreateUserButton.setAttribute("aria-expanded", String(opening));
+      if (opening) document.getElementById("newUserEmail").focus();
+    });
+
+    deleteAllEventsButton.addEventListener("click", async () => {
+      const firstConfirm = confirm("⚠️ ATENCIÓN: ¿Estás seguro de que querés borrar TODOS los registros de votos acumulados? Esta acción es irreversible.");
+      resetInactivityTimer();
+      resetAutoRefreshTimer();
+      if (!firstConfirm) return;
+
+      const secondConfirm = confirm("🚨 ÚLTIMA ADVERTENCIA: Se eliminará todo el historial de votos permanentemente. ¿Proceder?");
+      resetInactivityTimer();
+      resetAutoRefreshTimer();
+      if (!secondConfirm) return;
+
+      try {
+        await invokeAdmin({ action: "delete_all_events" });
+        showStatus("Todos los registros de eventos fueron eliminados.", "success");
+        await loadTotals();
+      } catch (err) {
+        showStatus(err.message || "Error al eliminar los registros.", "error");
+      }
+    });
+
+    createUserForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("newUserEmail").value.trim();
+      const password = document.getElementById("newUserPassword").value;
+      const perfil = document.getElementById("newUserProfile").value;
+
+      try {
+        await invokeAdmin({ action: "create_user", email, password, perfil });
+        createUserForm.reset();
+        createUserForm.hidden = true;
+        toggleCreateUserButton.textContent = "Crear Usuario";
+        toggleCreateUserButton.setAttribute("aria-expanded", "false");
+        showStatus("Usuario creado.", "success");
+        await loadUsers();
+      } catch (err) {
+        showStatus(err.message, "error");
+      }
+    });
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showStatus("Iniciando sesión…");
+
+      const { error } = await db.auth.signInWithPassword({
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value
+      });
+
+      if (error) {
+        showStatus("No se pudo iniciar sesión: " + error.message, "error");
+        return;
+      }
+
+      document.getElementById("password").value = "";
+      await loadApp();
+    });
+
+    document.getElementById("logoutButton").addEventListener("click", performLogout);
+
+    document.getElementById("refreshButton").addEventListener("click", async () => {
+      try {
+        await loadTotals();
+        resetAutoRefreshTimer();
+        showStatus("Totales actualizados.", "success");
+      } catch (err) {
+        showStatus(err.message, "error");
+      }
+    });
+
+    document.getElementById("refreshUsersButton").addEventListener("click", async () => {
+      try {
+        await loadUsers();
+        showStatus("Lista de usuarios actualizada.", "success");
+      } catch (err) {
+        showStatus(err.message, "error");
+      }
+    });
+
+    // Inicialización al cargar la página
+    loadApp();
+  </script>
+</body>
+</html>
