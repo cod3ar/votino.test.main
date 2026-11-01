@@ -53,6 +53,7 @@
       display: flex;
       align-items: center;
       gap: .5rem;
+      flex-wrap: wrap;
     }
 
     #totals {
@@ -148,7 +149,7 @@
 
   <!-- PANEL DE LOGIN -->
   <section id="loginPanel">
-    <h2>Inicio de sesión</h2>
+    <h2>Iniciar sesión</h2>
 
     <form id="loginForm">
       <label for="email">Correo electrónico</label>
@@ -215,6 +216,10 @@
         <button id="toggleCreateUserButton" type="button" aria-expanded="false" aria-controls="createUserForm">
           Crear Usuario
         </button>
+        <!-- BOTÓN DE BORRADO MASIVO -->
+        <button id="deleteAllEventsButton" type="button" style="background-color: #fee2e2; border: 1px solid #ef4444; color: #b91c1c;">
+          Borrar todos los registros
+        </button>
       </div>
 
       <form id="createUserForm" hidden>
@@ -270,10 +275,11 @@
     const timerCountdown = document.getElementById("timerCountdown");
     const refreshCountdown = document.getElementById("refreshCountdown");
     const lastVoteTimeEl = document.getElementById("lastVoteTime");
+    const deleteAllEventsButton = document.getElementById("deleteAllEventsButton");
 
     // Configuración de temporizadores
-    const INACTIVITY_TIMEOUT_SECONDS = 180;
-    const AUTO_REFRESH_SECONDS = 30;
+    const INACTIVITY_TIMEOUT_SECONDS = 60;
+    const AUTO_REFRESH_SECONDS = 5;
 
     let countdownInterval = null;
     let refreshInterval = null;
@@ -596,6 +602,27 @@
       toggleCreateUserButton.textContent = opening ? "Cancelar" : "Crear Usuario";
       toggleCreateUserButton.setAttribute("aria-expanded", String(opening));
       if (opening) document.getElementById("newUserEmail").focus();
+    });
+
+    // Evento del botón de borrado masivo de eventos
+    deleteAllEventsButton.addEventListener("click", async () => {
+      const firstConfirm = confirm("⚠️ ATENCIÓN: ¿Estás seguro de que querés borrar TODOS los registros de votos acumulados? Esta acción es irreversible.");
+      resetInactivityTimer();
+      resetAutoRefreshTimer();
+      if (!firstConfirm) return;
+
+      const secondConfirm = confirm("🚨 ÚLTIMA ADVERTENCIA: Se eliminará todo el historial de votos permanentemente. ¿Proceder?");
+      resetInactivityTimer();
+      resetAutoRefreshTimer();
+      if (!secondConfirm) return;
+
+      try {
+        await invokeAdmin({ action: "delete_all_events" });
+        showStatus("Todos los registros de eventos fueron eliminados.", "success");
+        await loadTotals();
+      } catch (err) {
+        showStatus(err.message || "Error al eliminar los registros.", "error");
+      }
     });
 
     createUserForm.addEventListener("submit", async (e) => {
