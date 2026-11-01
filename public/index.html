@@ -204,9 +204,11 @@
         (próxima actualización en: <strong id="refreshCountdown">--</strong>s)
       </span>
       <!-- Botón de borrado masivo reubicado junto a Actualizar totales (solo visible para admins) -->
+      <div>
       <button id="deleteAllEventsButton" type="button" style="background-color: #fee2e2; border: 1px solid #ef4444; color: #b91c1c;" hidden>
         Borrar todos los registros
       </button>
+      </div>
     </div>
     <pre id="totalsDetails" class="muted"></pre>
 
@@ -278,7 +280,7 @@
 
     // Configuración de temporizadores
     const INACTIVITY_TIMEOUT_SECONDS = 60;
-    const AUTO_REFRESH_SECONDS = 5;
+    const AUTO_REFRESH_SECONDS = 10;
 
     let countdownInterval = null;
     let refreshInterval = null;
