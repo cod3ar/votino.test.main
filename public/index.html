@@ -38,22 +38,45 @@
       margin-bottom: .5rem;
     }
 
+    /* ESTILOS DE BOTONES EN RELIEVE 3D */
     button {
       padding: .6rem .85rem;
       margin: .25rem .25rem .25rem 0;
       cursor: pointer;
+      font-weight: 600;
+      border-radius: 6px;
+      /* Gradiente de volumen e iluminación cenital */
+      background: linear-gradient(to bottom, #ffffff, #e1e4e8);
+      color: #24292e;
+      /* Doble sombra: biselado superior brillante y sombra inferior sutil */
+      border: 1px solid #cbccd1;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 1px 3px rgba(0, 0, 0, 0.12);
+      transition: all 0.05s ease;
+    }
+
+    button:hover {
+      background: linear-gradient(to bottom, #ffffff, #dcdfe3);
+      border-color: #b4b7bd;
+    }
+
+    /* Efecto de botón presionado (se hunde) */
+    button:active {
+      background: linear-gradient(to bottom, #d2d5da, #e6e8ec);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
+      transform: translateY(1px);
     }
 
     button:disabled {
       cursor: not-allowed;
-      opacity: .6;
+      opacity: .5;
+      box-shadow: none;
+      background: #e1e4e8;
     }
 
     .admin-actions {
       display: flex;
       align-items: center;
       gap: .5rem;
-      flex-wrap: wrap;
     }
 
     #totals {
@@ -127,12 +150,23 @@
       width: 100%;
     }
 
-    /* Botón de borrado masivo alineado a la derecha */
+    /* Botón de borrado masivo alineado a la derecha con estilo 3D rojo */
     #deleteAllEventsButton {
-      background-color: #fee2e2;
-      border: 1px solid #ef4444;
-      color: #b91c1c;
+      background: linear-gradient(to bottom, #fca5a5, #ef4444);
+      color: white;
+      border: 1px solid #dc2626;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 1px 3px rgba(0, 0, 0, 0.2);
       margin-left: auto;
+    }
+
+    #deleteAllEventsButton:hover {
+      background: linear-gradient(to bottom, #f87171, #dc2626);
+    }
+
+    #deleteAllEventsButton:active {
+      background: linear-gradient(to bottom, #b91c1c, #ef4444);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+      transform: translateY(1px);
     }
 
     .last-vote-info {
@@ -216,9 +250,9 @@
     <div class="refresh-group">
       <button id="refreshButton" type="button">Actualizar totales</button>
       <span class="muted" aria-live="off">
-        (actualiza en: <strong id="refreshCountdown">--</strong>s)
+        (próxima actualización en: <strong id="refreshCountdown">--</strong>s)
       </span>
-      <!-- Botón de borrado exclusivo para Admin alineado a la derecha -->
+      <!-- Botón de borrado alineado a la derecha (solo visible para admin) -->
       <button id="deleteAllEventsButton" type="button" hidden>
         Borrar todos los registros
       </button>
@@ -291,9 +325,9 @@
     const lastVoteTimeEl = document.getElementById("lastVoteTime");
     const deleteAllEventsButton = document.getElementById("deleteAllEventsButton");
 
-    // Configuración de temporizadores (ajustables)
+    // Configuración de temporizadores
     const INACTIVITY_TIMEOUT_SECONDS = 60;
-    const AUTO_REFRESH_SECONDS = 15;
+    const AUTO_REFRESH_SECONDS = 5;
 
     let countdownInterval = null;
     let refreshInterval = null;
@@ -391,7 +425,7 @@
       statusEl.className = kind;
     }
 
-    // Formato exacto requerido: dd/mm/aaaa HH:mm
+    // Formato exacto: dd/mm/aaaa HH:mm
     function formatDate(isoString) {
       if (!isoString) return "Nunca";
       const d = new Date(isoString);
@@ -600,7 +634,7 @@
       
       const isAdmin = role === "admin";
       adminPanel.hidden = !isAdmin;
-      deleteAllEventsButton.hidden = !isAdmin; // Oculta o muestra el botón de borrado masivo según permisos
+      deleteAllEventsButton.hidden = !isAdmin;
 
       try {
         await loadTotals();
