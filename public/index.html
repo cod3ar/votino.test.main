@@ -209,7 +209,26 @@
       <p></p>
       <button type="submit">Entrar</button>
     </form>
+
+    <p style="margin-top: 1rem;">
+      <a href="#" id="forgotPasswordLink" style="font-size: 0.9rem; color: #0066cc; text-decoration: none;">¿Olvidaste tu contraseña?</a>
+    </p>
   </section>
+
+  <!-- PANEL PARA DEFINIR NUEVA CONTRASEÑA (oculto por defecto) -->
+  <section id="recoveryPanel" hidden>
+    <h2>Restablecer contraseña</h2>
+    <p class="muted">Ingresá tu nueva contraseña para recuperar el acceso.</p>
+
+    <form id="recoveryForm">
+      <label for="newRecoveryPassword">Nueva contraseña (mínimo 8 caracteres)</label>
+      <input id="newRecoveryPassword" type="password" autocomplete="new-password" minlength="8" required>
+
+      <p></p>
+      <button type="submit">Actualizar contraseña</button>
+    </form>
+  </section>
+
 
   <!-- PANEL PRINCIPAL DE LA APLICACIÓN -->
   <section id="appPanel" hidden>
@@ -755,6 +774,76 @@
         showStatus(err.message, "error");
       }
     });
+
+
+
+    // --- Recuperación por correo ---\
+    const recoveryPanel = document.getElementById("recoveryPanel");
+
+    // 1. Enviar el correo de recuperación
+    document.getElementById("forgotPasswordLink").addEventListener("click", async (e) => {
+      e.preventDefault();
+      const emailInput = document.getElementById("email");
+      const email = emailInput.value.trim();
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showStatus("Ingresá tu correo electrónico en el campo de arriba para enviarte el enlace.", "error");
+        emailInput.focus();
+        return;
+      }
+
+      if (!confirm(`¿Enviar enlace de recuperación a ${email}?`)) return;
+
+      showStatus("Enviando correo de recuperación…");
+
+      const { error } = await db.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+
+      if (error) {
+        showStatus("No se pudo enviar el correo: " + error.message, "error");
+      } else {
+        showStatus("Correo enviado. Revisá tu bandeja de entrada.", "success");
+      }
+    });
+
+    // 2. Detectar cuando el usuario vuelve desde el enlace del correo
+    db.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        stopInactivityTimer();
+        stopAutoRefreshTimer();
+        loginPanel.hidden = true;
+        appPanel.hidden = true;
+        recoveryPanel.hidden = false;
+        showStatus("Ingresá tu nueva contraseña.", "muted");
+      }
+    });
+
+    // 3. Guardar la nueva contraseña en Supabase
+    document.getElementById("recoveryForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const newPassword = document.getElementById("newRecoveryPassword").value;
+
+      if (newPassword.length < 8) {
+        showStatus("La contraseña debe tener al menos 8 caracteres.", "error");
+        return;
+      }
+
+      showStatus("Actualizando contraseña…");
+
+      const { error } = await db.auth.updateUser({ password: newPassword });
+
+      if (error) {
+        showStatus("Error al actualizar la contraseña: " + error.message, "error");
+      } else {
+        document.getElementById("newRecoveryPassword").value = "";
+        recoveryPanel.hidden = true;
+        showStatus("Contraseña actualizada correctamente.", "success");
+        await loadApp();
+      }
+    });
+    // --- Recuperación por correo ---/
+
 
     // Inicialización al cargar la página
     loadApp();
