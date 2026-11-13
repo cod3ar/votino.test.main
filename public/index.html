@@ -276,6 +276,15 @@
         <label for="newUserEmail">Correo electrónico</label>
         <input id="newUserEmail" type="email" autocomplete="email" required>
 
+        <label for="newUserName">Nombre</label>
+        <input id="newUserName" type="text" maxlength="30" placeholder="Ej. Juan">
+
+        <label for="newUserLastName">Apellido</label>
+        <input id="newUserLastName" type="text" maxlength="30" placeholder="Ej. Pérez">
+
+        <label for="newUserDni">DNI (8 dígitos)</label>
+        <input id="newUserDni" type="text" maxlength="8" pattern="\d{8}" placeholder="Ej. 12345678">
+
         <label for="newUserPassword">Contraseña inicial (mínimo 8 caracteres)</label>
         <input id="newUserPassword" type="password" autocomplete="new-password" minlength="8" required>
 
@@ -292,6 +301,8 @@
         <table>
           <thead>
             <tr>
+              <th>Nombre y Apellido</th>
+              <th>DNI</th>
               <th>Correo</th>
               <th>Perfil</th>
               <th>Último ingreso</th>
@@ -532,11 +543,15 @@
 
       for (const user of result.users || []) {
         const row = document.createElement("tr");
+        const nameCell = document.createElement("td");
+        const dniCell = document.createElement("td");
         const emailCell = document.createElement("td");
         const profileCell = document.createElement("td");
         const lastLoginCell = document.createElement("td");
         const actionsCell = document.createElement("td");
 
+        nameCell.textContent = `${user.nombre || ""} ${user.apellido || ""}`.trim() || "—";
+        dniCell.textContent = user.dni || "—";
         emailCell.textContent = user.email || "(sin correo)";
         profileCell.textContent = user.perfil || "sin perfil";
         lastLoginCell.textContent = formatDate(user.last_sign_in_at);
@@ -581,7 +596,7 @@
         }, user.id === currentUserId);
 
         actionsCell.append(resetButton, deleteButton);
-        row.append(emailCell, profileCell, lastLoginCell, actionsCell);
+        row.append(nameCell, dniCell, emailCell, profileCell, lastLoginCell, actionsCell);
         usersBody.append(row);
       }
     }
@@ -652,7 +667,7 @@
       createUserForm.hidden = !opening;
       toggleCreateUserButton.textContent = opening ? "Cancelar" : "Crear Usuario";
       toggleCreateUserButton.setAttribute("aria-expanded", String(opening));
-      if (opening) document.getElementById("newUserEmail").focus();
+      if (opening) document.getElementById("newUserName").focus();
     });
 
     deleteAllEventsButton.addEventListener("click", async () => {
@@ -678,11 +693,19 @@
     createUserForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = document.getElementById("newUserEmail").value.trim();
+      const nombre = document.getElementById("newUserName").value.trim();
+      const apellido = document.getElementById("newUserLastName").value.trim();
+      const dni = document.getElementById("newUserDni").value.trim();
       const password = document.getElementById("newUserPassword").value;
       const perfil = document.getElementById("newUserProfile").value;
 
+      if (dni && !/^\d{8}$/.test(dni)) {
+        showStatus("El DNI debe tener exactamente 8 dígitos numéricos.", "error");
+        return;
+      }
+
       try {
-        await invokeAdmin({ action: "create_user", email, password, perfil });
+        await invokeAdmin({ action: "create_user", email, nombre, apellido, dni, password, perfil });
         createUserForm.reset();
         createUserForm.hidden = true;
         toggleCreateUserButton.textContent = "Crear Usuario";
